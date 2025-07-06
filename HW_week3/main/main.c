@@ -3,6 +3,7 @@
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_timer.h"
 #include <string.h>
 
 #define PIN_NUM_MOSI 12
@@ -11,11 +12,18 @@
 #define start_point_x 1
 #define start_point_y 1
 #define end_point_x 4
-#define end_point_y 6
+#define end_point_y 4
 #define frame_rate 500
-uint8_t framebuffer[8] = {};
 
+int x = start_point_x;
+int y = start_point_y;
+int x_direction = 1;
+int y_direction = 1;
+int frame_count = 0;
+
+uint8_t framebuffer[8] = {};
 spi_device_handle_t spi;
+esp_timer_handle_t timer_led;
 
 void max7219_send(uint8_t address, uint8_t data) {
     uint8_t tx_buf[2] = {address, data};
@@ -46,6 +54,40 @@ void set_led(uint8_t row, uint8_t col){
     framebuffer[row] |= (1 << (7-col));
     max7219_send(8-row, framebuffer[row]);
 }
+void on_timer(void* args){
+    if(x + x_direction <= 0 || x + x_direction  > 7) {
+        x_direction *= -1;
+        frame_count++;
+    }
+    if(y + y_direction < 0 || y + y_direction > 7){
+        y_direction *= -1;
+        frame_count++;
+    } 
+    x += x_direction;
+    y += y_direction;
+    if(x == end_point_x && y == end_point_y){
+        esp_timer_stop(timer_led);
+        clear();
+        for(int i = 0 ; i < 8 ; i++)set_led(0,i);
+        set_led(x,y);
+        printf("%d\n", frame_count);
+
+    }
+    clear();
+    for(int i = 0 ; i < 8 ; i++)set_led(0,i);
+    set_led(x,y);
+}
+void start_timer() {
+    const esp_timer_create_args_t timer_args = {
+        .callback = &on_timer,
+        .arg = NULL,
+        .dispatch_method = ESP_TIMER_TASK,  // 用任務觸發（預設）
+        .name = "frame_timer"
+    };
+    
+    esp_timer_create(&timer_args, &timer_led);
+    esp_timer_start_periodic(timer_led, frame_rate*1000);
+}
 void app_main(void) {
     spi_bus_config_t buscfg = {
         .mosi_io_num = PIN_NUM_MOSI,
@@ -67,32 +109,5 @@ void app_main(void) {
     spi_bus_add_device(HSPI_HOST, &devcfg, &spi);
 
     max7219_init();
-
-    int x = start_point_x;
-    int y = start_point_y;
-    int x_direction = 1;
-    int y_direction = 1;
-    int frame_count = 0;
-    while (x != end_point_x || y != end_point_y){
-        clear();
-        for(int i = 0 ; i < 8 ; i++)set_led(0,i);
-        set_led(x,y);
-        vTaskDelay(pdMS_TO_TICKS(frame_rate));
-        if(x + x_direction <= 0 || x + x_direction  > 7) {
-            x_direction *= -1;
-            frame_count++;
-        }
-        if(y + y_direction < 0 || y + y_direction > 7){
-            y_direction *= -1;
-            frame_count++;
-        } 
-        x += x_direction;
-        y += y_direction;
-        
-    }
-    clear();
-    for(int i = 0 ; i < 8 ; i++)set_led(0,i);
-    set_led(x,y);
-    printf("%d\n", frame_count);
-
+    start_timer();
 }
