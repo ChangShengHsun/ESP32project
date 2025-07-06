@@ -12,7 +12,7 @@
 #define start_point_x 1
 #define start_point_y 1
 #define end_point_x 4
-#define end_point_y 4
+#define end_point_y 6
 #define frame_rate 500
 
 int x = start_point_x;
@@ -33,7 +33,6 @@ void max7219_send(uint8_t address, uint8_t data) {
     };
     spi_device_transmit(spi, &t);  // Blocking transmit
 }
-
 void max7219_init() {
     max7219_send(0x0F, 0x00);  // Display test off
     max7219_send(0x0C, 0x01);  // Shutdown mode off
@@ -44,6 +43,7 @@ void max7219_init() {
         max7219_send(i, 0x00); // Clear all rows
     }
 }
+
 void clear(){
     for (int i = 0; i < 8; i++) {
         framebuffer[i] = 0x00;
