@@ -55,13 +55,13 @@ void set_led(uint8_t row, uint8_t col){
     max7219_send(8-row, framebuffer[row]);
 }
 void on_timer(void* args){
+    frame_count++;
     if(x + x_direction <= 0 || x + x_direction  > 7) {
         x_direction *= -1;
-        frame_count++;
+        
     }
     if(y + y_direction < 0 || y + y_direction > 7){
         y_direction *= -1;
-        frame_count++;
     } 
     x += x_direction;
     y += y_direction;
